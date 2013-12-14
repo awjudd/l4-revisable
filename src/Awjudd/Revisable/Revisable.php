@@ -79,7 +79,7 @@ abstract class Revisable extends Ardent
             $query = NULL;
 
             // Check if soft deletes are enabled
-            if(static::$softDeletes)
+            if($this->softDelete)
             {
                 // They are, so grab all of the trashed items
                 $query = self::onlyTrashed();
@@ -101,9 +101,19 @@ abstract class Revisable extends Ardent
             }
 
             // Return the query
-            return $query->get($columnList);
+            return $query->take($this->revisionCount)->orderBy('created_at', 'desc')->get($columnList);
         }
     }
 
+
+    public function beforeSave()
+    {
+        // Check if revision history is enabled
+        if(!$this->revisionsEnabled())
+        {
+            // They aren't enabled, so let them modify the row accordingly
+            return true;
+        }
+    }
 
 }
