@@ -62,6 +62,11 @@ abstract class Revisable extends Ardent
             return FALSE;
         }
 
+        return $this->getRevisions()->count() > 0;
+    }
+
+    public function getRevisions($columnList = array('*'))
+    {
         // There are, so look for any revisions
         if($this->hasAlternateRevisionTable())
         {
@@ -82,7 +87,10 @@ abstract class Revisable extends Ardent
             else
             {
                 // They aren't, so make sure we remove the current element
-                $query = self::where($this->model->getKeyName(), '<>', $this->{$this->model->getKeyName()});
+
+                // Grab the key column name
+                $keyName = $this->model->getKeyName();
+                $query = self::where($keyName, '<>', $this->attributes[$keyName]);
             }
 
             // Cycle through all of the other respective columns
@@ -93,7 +101,7 @@ abstract class Revisable extends Ardent
             }
 
             // Return the query
-            return $query->get();
+            return $query->get($columnList);
         }
     }
 
