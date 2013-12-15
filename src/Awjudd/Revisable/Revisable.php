@@ -28,6 +28,22 @@ abstract class Revisable extends Ardent
      */
     protected $keyColumns = array();
 
+    protected $keysToSkip = array(
+        'created_at',
+        'updated_at',
+        'deleted_at',
+    );
+
+    protected $updatedObject = NULL;
+
+    public function __construct()
+    {
+        parent::__construct();
+
+        // Add the key column to the list of items to skip
+        $this->keysToSkip[] = $this->getKeyName();
+    }
+
     /**
      * Whether or not there is an alternate table for revisions.
      * 
@@ -89,7 +105,7 @@ abstract class Revisable extends Ardent
                 // They aren't, so make sure we remove the current element
 
                 // Grab the key column name
-                $keyName = $this->model->getKeyName();
+                $keyName = $this->getKeyName();
                 $query = self::where($keyName, '<>', $this->attributes[$keyName]);
             }
 
@@ -106,14 +122,66 @@ abstract class Revisable extends Ardent
     }
 
 
-    public function beforeSave()
+    public static function updating($model)
     {
+        // Check if we are saving for the first time
+        if(!isset($this->attributes[$this->getKeyName()]))
+        {
+            // No key column identified, so it is new
+            return TRUE;
+        }
+
         // Check if revision history is enabled
         if(!$this->revisionsEnabled())
         {
             // They aren't enabled, so let them modify the row accordingly
-            return true;
+            return TRUE;
         }
+
+        // Revisions are enabled, so we need to act
+        if($this->hasAlternateRevisionTable())
+        {
+            // The data is going into another table, so act on it
+        }
+        else
+        {
+            $class = get_class($model);
+            $updated = new $class;
+
+            // Same table, so make a new version of the model
+            foreach($this->attributes as $key => $value)
+            {
+                // Check if the $key is within the list of ones to skip
+                if(!in_array($key, $this->keysToSkip))
+                {
+                    // It isn't, so set the value
+                    $updated->$key = $value;
+                }
+            }
+
+            // Save the new object
+            $updated->save();
+
+            // Store the updated object for later
+            $this->updatedObject = $updated;
+
+            // Mark the current one as deleted
+            $this->delete();
+        }
+
+        // Cancel the save operation
+        return FALSE;
+    }
+
+    public function afterSave()
+    {
+        // Kick off the post-save event if necessary
+        //$this->postSave($this->updatedObject);
+    }
+
+    public function postSave($updated)
+    {
+        throw new \Exception('Not Implemented');
     }
 
 }
