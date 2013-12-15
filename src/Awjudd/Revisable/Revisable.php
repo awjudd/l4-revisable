@@ -11,7 +11,7 @@ abstract class Revisable extends Ardent
      * 
      * @var integer
      */
-    protected $revisionCount = 0;
+    protected static $revisionCount = 0;
 
     /**
      * If the revisions are going to be stored in a separate table, then this
@@ -19,14 +19,14 @@ abstract class Revisable extends Ardent
      * 
      * @var string
      */
-    protected $revisionTable = NULL;
+    protected static $revisionTable = NULL;
 
     /**
      * All of the columns that one should be looking at to derive revision.
      * 
      * @var array
      */
-    protected $keyColumns = array();
+    protected static $keyColumns = array();
 
     /**
      * An array of all of the keys that the model shouldn't copy over when
@@ -62,9 +62,9 @@ abstract class Revisable extends Ardent
      * 
      * @return boolean
      */
-    public function hasAlternateRevisionTable()
+    public static function hasAlternateRevisionTable()
     {
-        return $this->revisionTable !== NULL;
+        return static::$revisionTable !== NULL;
     }
 
     /**
@@ -72,9 +72,9 @@ abstract class Revisable extends Ardent
      * 
      * @return boolean
      */
-    public function revisionsEnabled()
+    public static function revisionsEnabled()
     {
-        return $this->revisionCount <> 0;
+        return static::$revisionCount <> 0;
     }
 
     /**
@@ -123,14 +123,14 @@ abstract class Revisable extends Ardent
             }
 
             // Cycle through all of the other respective columns
-            foreach($this->keyColumns as $column)
+            foreach(static::$keyColumns as $column)
             {
                 // Filter on the key values
                 $query->where($column, '=', $this->$column);
             }
 
             // Check if we only want to keep a certain number of revisions
-            if($this->revisionCount > 0)
+            if(static::$revisionCount > 0)
             {
                 // Only grab the ones that fit
                 $query->take($this->revisionCount);
@@ -148,7 +148,6 @@ abstract class Revisable extends Ardent
         Closure $beforeSave = null,
         Closure $afterSave = null)
     {
-        var_dump($this);
         // Check if we are saving for the first time
         if(!isset($this->attributes[$this->getKeyName()]) || !$this->revisionsEnabled() || $this->requireSave)
         {
@@ -194,7 +193,7 @@ abstract class Revisable extends Ardent
             // with the new instance's
             foreach($this->attributes as $key => $value)
             {
-                $this->old[$key] = $this->original[$key];
+                $this->old[$key] = isset($this->original[$key]) ? $this->original[$key] : NULL;
 
                 // Overwrite them with the current
                 if(isset($updated->attributes[$key]))
@@ -205,6 +204,100 @@ abstract class Revisable extends Ardent
         }
 
         // Cancel the save operation
+        return TRUE;
+    }
+
+    /**
+     * Used in order to get rid of any expired revisions.
+     */
+    public static function removeExpired(array $where = array())
+    {
+        // Check if we either have no revisions enabled, or it is set to infinite
+        if(static::$revisionCount <= 0)
+        {
+            // Remove nothing
+            return TRUE;
+        }
+
+        // Otherwise look for the expired revisions
+        if( static::hasAlternateRevisionTable())
+        {
+            $query = DB::table(self::$revisionTable);
+        }
+        else
+        {
+            $query = self::onlyTrashed();
+        }
+
+        // Add in the where clauses that the user specified
+        if(count($where)>0)
+        {
+            foreach($where as $key => $value)
+            {
+                $query->where($key, '=', $value);
+            }
+        }
+
+        if(count(static::$keyColumns) > 0)
+        {
+            foreach(static::$keyColumns as $column)
+            {
+                $query->groupBy($column);
+            }
+
+            $query->having(\DB::raw('count(1)'), '>',  static::$revisionCount)
+                ->addSelect(static::$keyColumns);
+        }
+        else
+        {
+            $query->where(\DB::raw('count(1)'), '>', static::$revisionCount);
+        }
+
+        $ids = array();
+
+        // Cycle through the list
+        foreach($query->get() as $row)
+        {
+            // Otherwise look for the expired revisions
+            if(static::hasAlternateRevisionTable())
+            {
+                $filter = \DB::table(self::$revisionTable);
+            }
+            else
+            {
+                $filter = self::onlyTrashed();
+            }
+
+            foreach($row->attributes as $key => $value)
+            {
+                $filter->where($key, '=', $value);
+            }
+
+            $filter->skip(static::$revisionCount)
+                ->take(10000000)
+                ->orderBy('deleted_at', 'desc')
+                ->addSelect('id');
+
+            foreach($filter->get() as $id)
+            {
+                $ids[] = $id->attributes['id'];
+            }
+        }
+
+        if(count($ids) > 0)
+        {
+            if(static::hasAlternateRevisionTable())
+            {
+                $delete = \DB::table(self::$revisionTable);
+            }
+            else
+            {
+                $delete = self::onlyTrashed();
+            }
+
+            $delete->whereIn('id', $ids)->forceDelete();
+        }
+
         return TRUE;
     }
 
