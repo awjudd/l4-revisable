@@ -47,6 +47,8 @@ abstract class Revisable extends Ardent
      */
     protected $old = NULL;
 
+    protected $newObject = FALSE;
+
     public function __construct()
     {
         parent::__construct();
@@ -72,7 +74,7 @@ abstract class Revisable extends Ardent
      */
     public function revisionsEnabled()
     {
-        return $this->revisionCount == 0;
+        return $this->revisionCount <> 0;
     }
 
     /**
@@ -127,26 +129,30 @@ abstract class Revisable extends Ardent
                 $query->where($column, '=', $this->$column);
             }
 
+            // Check if we only want to keep a certain number of revisions
+            if($this->revisionCount > 0)
+            {
+                // Only grab the ones that fit
+                $query->take($this->revisionCount);
+            }
+
             // Return the query
-            return $query->take($this->revisionCount)->orderBy('created_at', 'desc')->get($columnList);
+            return $query->orderBy('created_at', 'desc')->get($columnList);
         }
     }
 
 
-    public function beforeSave($model)
+    public function save(array $rules = array(),
+        array $customMessages = array(),
+        array $options = array(),
+        Closure $beforeSave = null,
+        Closure $afterSave = null)
     {
         // Check if we are saving for the first time
-        if(!isset($this->attributes[$this->getKeyName()]))
+        if(!isset($this->attributes[$this->getKeyName()]) || !$this->revisionsEnabled())
         {
-            // No key column identified, so it is new
-            return TRUE;
-        }
-
-        // Check if revision history is enabled
-        if(!$this->revisionsEnabled())
-        {
-            // They aren't enabled, so let them modify the row accordingly
-            return TRUE;
+            // No key column identified, so it is new, or revisions are disabled
+            return parent::save($rules, $customMessages, $options, $beforeSave, $afterSave);
         }
 
         // Revisions are enabled, so we need to act
@@ -156,7 +162,7 @@ abstract class Revisable extends Ardent
         }
         else
         {
-            $class = get_class($model);
+            $class = get_class($this);
             $updated = new $class;
 
             // Same table, so make a new version of the model
@@ -195,23 +201,7 @@ abstract class Revisable extends Ardent
         }
 
         // Cancel the save operation
-        return FALSE;
-    }
-
-    public function save(array $attributes = array('*'))
-    {
-
-    }
-
-    public function afterSave()
-    {
-        // Kick off the post-save event if necessary
-        //$this->postSave($this->updatedObject);
-    }
-
-    public function postSave($updated)
-    {
-        throw new \Exception('Not Implemented');
+        return TRUE;
     }
 
 }
