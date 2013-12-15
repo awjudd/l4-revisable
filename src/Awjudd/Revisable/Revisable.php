@@ -47,7 +47,7 @@ abstract class Revisable extends Ardent
      */
     protected $old = NULL;
 
-    protected $newObject = FALSE;
+    protected $requireSave = FALSE;
 
     public function __construct()
     {
@@ -148,8 +148,9 @@ abstract class Revisable extends Ardent
         Closure $beforeSave = null,
         Closure $afterSave = null)
     {
+        var_dump($this);
         // Check if we are saving for the first time
-        if(!isset($this->attributes[$this->getKeyName()]) || !$this->revisionsEnabled())
+        if(!isset($this->attributes[$this->getKeyName()]) || !$this->revisionsEnabled() || $this->requireSave)
         {
             // No key column identified, so it is new, or revisions are disabled
             return parent::save($rules, $customMessages, $options, $beforeSave, $afterSave);
@@ -162,6 +163,13 @@ abstract class Revisable extends Ardent
         }
         else
         {
+            $this->requireSave = TRUE;
+
+            // Delete the current instance
+            $this->delete();
+
+            $this->requireSave = FALSE;
+
             $class = get_class($this);
             $updated = new $class;
 
@@ -180,24 +188,20 @@ abstract class Revisable extends Ardent
             $updated->save();
 
             // Create a new instance of the object
-            $this->old = new $class;
+            $this->old = new $class();
 
             // Cycle through all of the attributes and set the override them
             // with the new instance's
             foreach($this->attributes as $key => $value)
             {
-                // Copy the values into the new instance
-                $this->old->attributes[$key] = $value;
+                $this->old[$key] = $this->original[$key];
 
                 // Overwrite them with the current
                 if(isset($updated->attributes[$key]))
                 {
-                    $this->attributes[$key] = $updated->attributes[$key];
+                    $this->attributes[$key] = $this->original[$key] = $updated->attributes[$key];
                 }
             }
-
-            // Delete the old object
-            $this->old->delete();
         }
 
         // Cancel the save operation
