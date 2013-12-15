@@ -47,11 +47,16 @@ abstract class Revisable extends Ardent
      */
     protected $old = NULL;
 
-    protected $requireSave = FALSE;
+    /**
+     * A boolean flag used internally in order to force a save to happen.
+     * 
+     * @var boolean
+     */
+    private $requireSave = FALSE;
 
-    public function __construct()
+    public function __construct(array $attributes = array())
     {
-        parent::__construct();
+        parent::__construct($attributes);
 
         // Add the key column to the list of items to skip
         $this->keysToSkip[] = $this->getKeyName();
