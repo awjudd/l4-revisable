@@ -28,13 +28,24 @@ abstract class Revisable extends Ardent
      */
     protected $keyColumns = array();
 
+    /**
+     * An array of all of the keys that the model shouldn't copy over when
+     * duplicating.
+     *
+     * @var array
+     */
     protected $keysToSkip = array(
         'created_at',
         'updated_at',
         'deleted_at',
     );
 
-    protected $updatedObject = NULL;
+    /**
+     * The complete previous version of the object.
+     *
+     * Object
+     */
+    protected $old = NULL;
 
     public function __construct()
     {
@@ -122,7 +133,7 @@ abstract class Revisable extends Ardent
     }
 
 
-    public static function updating($model)
+    public function beforeSave($model)
     {
         // Check if we are saving for the first time
         if(!isset($this->attributes[$this->getKeyName()]))
@@ -162,15 +173,34 @@ abstract class Revisable extends Ardent
             // Save the new object
             $updated->save();
 
-            // Store the updated object for later
-            $this->updatedObject = $updated;
+            // Create a new instance of the object
+            $this->old = new $class;
 
-            // Mark the current one as deleted
-            $this->delete();
+            // Cycle through all of the attributes and set the override them
+            // with the new instance's
+            foreach($this->attributes as $key => $value)
+            {
+                // Copy the values into the new instance
+                $this->old->attributes[$key] = $value;
+
+                // Overwrite them with the current
+                if(isset($updated->attributes[$key]))
+                {
+                    $this->attributes[$key] = $updated->attributes[$key];
+                }
+            }
+
+            // Delete the old object
+            $this->old->delete();
         }
 
         // Cancel the save operation
         return FALSE;
+    }
+
+    public function save(array $attributes = array('*'))
+    {
+
     }
 
     public function afterSave()
