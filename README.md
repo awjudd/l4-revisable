@@ -81,11 +81,11 @@ For any models that you would like to use the Revisable settings you should exte
     }
 
 Extending this base class will override the save method and handle all of the heavy lifting that as to do with revision history.  It will also provide you with a few helper functions:
- - hasAlternateRevisionTable() - Whether or not there is a revision tabel
- - revisionsEnabled() - Are revisions enabled?
- - hasRevisions() - Are there any revisions?
- - getRevisions(array $columns = array('*')) - Retrieve any revisions that currently exist
- - removeExpired(array $where = array()) - Remove any of the expired revisions
+ - `hasAlternateRevisionTable()` - Whether or not there is a revision tabel
+ - `revisionsEnabled()` - Are revisions enabled?
+ - `hasRevisions()` - Are there any revisions?
+ - `getRevisions(array $columns = array('*'))` - Retrieve any revisions that currently exist
+ - `removeExpired(array $where = array())` - Remove any of the expired revisions
 
 ### Clearing out Expired revisions
 
