@@ -1,6 +1,9 @@
 Revisable
 ============
 
+[![Build Status](https://api.travis-ci.org/awjudd/l4-revisable.png)](https://travis-ci.org/awjudd/l4-revisable)
+[![ProjectStatus](http://stillmaintained.com/awjudd/l4-revisable.png)](http://stillmaintained.com/awjudd/l4-revisable)
+
 A **Laravel 4** base model that will allow for revisions to be made and tracked.
 
 ## Features
