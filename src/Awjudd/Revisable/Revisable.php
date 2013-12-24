@@ -43,7 +43,7 @@ abstract class Revisable extends Ardent
     /**
      * The complete previous version of the object.
      *
-     * Object
+     * @var Object
      */
     protected $old = NULL;
 
@@ -96,54 +96,12 @@ abstract class Revisable extends Ardent
             return FALSE;
         }
 
-        return $this->getRevisions()->count() > 0;
+        return $this->deriveRevisions()->count() > 0;
     }
 
     public function getRevisions($columnList = array('*'))
     {
-        // There are, so look for any revisions
-        if($this->hasAlternateRevisionTable())
-        {
-            // They have an another table where the revisions are stored,
-            // so look it up.
-        }
-        else
-        {
-            // Only grab the things that 
-            $query = NULL;
-
-            // Check if soft deletes are enabled
-            if($this->softDelete)
-            {
-                // They are, so grab all of the trashed items
-                $query = self::onlyTrashed();
-            }
-            else
-            {
-                // They aren't, so make sure we remove the current element
-
-                // Grab the key column name
-                $keyName = $this->getKeyName();
-                $query = self::where($keyName, '<>', $this->attributes[$keyName]);
-            }
-
-            // Cycle through all of the other respective columns
-            foreach(static::$keyColumns as $column)
-            {
-                // Filter on the key values
-                $query->where($column, '=', $this->$column);
-            }
-
-            // Check if we only want to keep a certain number of revisions
-            if(static::$revisionCount > 0)
-            {
-                // Only grab the ones that fit
-                $query->take($this->revisionCount);
-            }
-
-            // Return the query
-            return $query->orderBy('created_at', 'desc')->get($columnList);
-        }
+        return $this->deriveRevisions()->get($columnList);
     }
 
 
@@ -164,6 +122,32 @@ abstract class Revisable extends Ardent
         if($this->hasAlternateRevisionTable())
         {
             // The data is going into another table, so act on it
+
+            // Add a new row into the new table for the current row
+            $class = get_class($this);
+
+            // Make a new instance of the class
+            $instance = new $class;
+
+            // Change the table it is pointing to
+            $instance->table = static::$revisionTable;
+
+            // Different table, so fill in the model
+            foreach($this->attributes as $key => $value)
+            {
+                // Check if the $key is within the list of ones to skip
+                if(!in_array($key, $this->keysToSkip))
+                {
+                    // It isn't, so set the value
+                    $instance->$key = $this->original[$key];
+                }
+            }
+
+            // Save the instance
+            $instance->save();
+
+            // Update the current row with the new information
+            return parent::save($rules, $customMessages, $options, $beforeSave, $afterSave);
         }
         else
         {
@@ -214,6 +198,9 @@ abstract class Revisable extends Ardent
 
     /**
      * Used in order to get rid of any expired revisions.
+     * 
+     * @param array $where Any filters to apply to the filters
+     * @return boolean
      */
     public static function removeExpired(array $where = array())
     {
@@ -227,7 +214,7 @@ abstract class Revisable extends Ardent
         // Otherwise look for the expired revisions
         if( static::hasAlternateRevisionTable())
         {
-            $query = DB::table(self::$revisionTable);
+            $query = \DB::table(static::$revisionTable);
         }
         else
         {
@@ -250,7 +237,7 @@ abstract class Revisable extends Ardent
                 $query->groupBy($column);
             }
 
-            $query->having(\DB::raw('count(1)'), '>',  static::$revisionCount)
+            $query->having(\DB::raw('count(1)'), '>', static::$revisionCount)
                 ->addSelect(static::$keyColumns);
         }
         else
@@ -258,6 +245,7 @@ abstract class Revisable extends Ardent
             $query->where(\DB::raw('count(1)'), '>', static::$revisionCount);
         }
 
+        // List of all of the ids affected by the revision count
         $ids = array();
 
         // Cycle through the list
@@ -266,44 +254,119 @@ abstract class Revisable extends Ardent
             // Otherwise look for the expired revisions
             if(static::hasAlternateRevisionTable())
             {
-                $filter = \DB::table(self::$revisionTable);
+                $filter = \DB::table(static::$revisionTable);
             }
             else
             {
                 $filter = self::onlyTrashed();
             }
 
-            foreach($row->attributes as $key => $value)
+            foreach(static::$keyColumns as $column)
             {
-                $filter->where($key, '=', $value);
+                $filter->where($column, '=', $row->$column);
             }
 
             $filter->skip(static::$revisionCount)
-                ->take(10000000)
-                ->orderBy('deleted_at', 'desc')
+
+                // Take as many as we need
+                ->take(PHP_INT_MAX)
+
+                // Grab anything that was soft deleted after the number we keep
+                ->orderBy('created_at', 'desc')
+
+                // Grab the ID column
                 ->addSelect('id');
 
+            // Cycle through all of the records
             foreach($filter->get() as $id)
             {
-                $ids[] = $id->attributes['id'];
+                $ids[] = $id->id;
             }
         }
 
+        // Were there any records that fit the criteria
         if(count($ids) > 0)
         {
+            // There were, so 
             if(static::hasAlternateRevisionTable())
             {
-                $delete = \DB::table(self::$revisionTable);
+                $delete = \DB::table(static::$revisionTable);
             }
             else
             {
                 $delete = self::onlyTrashed();
             }
 
-            $delete->whereIn('id', $ids)->forceDelete();
+            // Filter all of the selected
+            $delete->whereIn('id', $ids);
+
+            // Figure out how we should delete
+            if(static::hasAlternateRevisionTable())
+            {
+                // Alternate table, so just delete it
+                $delete->delete();
+            }
+            else
+            {
+                // Otherwise delete it
+                $delete->forceDelete();
+            }
         }
 
         return TRUE;
+    }
+
+    /**
+     * Used in order to derive the actual query that is used to grab the revisions.
+     * 
+     * @return Illuminate\Database\Query\Builder
+     */
+    private function deriveRevisions()
+    {
+        $query = NULL;
+
+        // There are, so look for any revisions
+        if($this->hasAlternateRevisionTable())
+        {
+            $query = \DB::table(static::$revisionTable);
+        }
+        else
+        {
+            // Only grab the things that 
+            $query = NULL;
+
+            // Check if soft deletes are enabled
+            if($this->softDelete)
+            {
+                // They are, so grab all of the trashed items
+                $query = self::onlyTrashed();
+            }
+            else
+            {
+                // They aren't, so make sure we remove the current element
+
+                // Grab the key column name
+                $keyName = $this->getKeyName();
+                $query = static::where($keyName, '<>', $this->attributes[$keyName]);
+            }
+        }
+
+        // Cycle through all of the other respective columns
+        foreach(static::$keyColumns as $column)
+        {
+            // Filter on the key values
+            $query->where($column, '=', $this->$column);
+        }
+
+        // Check if we only want to keep a certain number of revisions
+        if(static::$revisionCount > 0)
+        {
+            // Only grab the ones that fit
+            $query->take($this->revisionCount);
+        }
+
+        // Return the query
+        return $query->orderBy('created_at', 'desc');
     }
 
 }
