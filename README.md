@@ -89,7 +89,7 @@ Extending this base class will override the save method and handle all of the he
 
 ### Clearing out Expired revisions
 
-In an attempt to keep the application performant, it doesn't automatically purge any expired revisions.  You have to manually tell it to remove them.  To do this all you need to do is call the built in revisable:cleanup command.
+In an attempt to keep the application performant, it doesn't automatically purge any expired revisions.  You have to manually tell it to remove them.  To do this all you need to do is call the built in `revisable:cleanup` command.
 
     $ php artisan revisable:cleanup <model>
 
