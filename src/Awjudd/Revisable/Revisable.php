@@ -56,6 +56,7 @@ abstract class Revisable extends Ardent
 
     public function __construct(array $attributes = array())
     {
+        // Call the parent's constructor
         parent::__construct($attributes);
 
         // Add the key column to the list of items to skip
@@ -99,6 +100,11 @@ abstract class Revisable extends Ardent
         return $this->deriveRevisions()->count() > 0;
     }
 
+    /**
+     * Gets a list of revisions available for the specified model.
+     * 
+     * @return array
+     */
     public function getRevisions($columnList = array('*'))
     {
         return $this->deriveRevisions()->get($columnList);
@@ -221,22 +227,26 @@ abstract class Revisable extends Ardent
             $query = self::onlyTrashed();
         }
 
-        // Add in the where clauses that the user specified
+        // Were there any where clause filters?
         if(count($where)>0)
         {
+            // There were, so add them in
             foreach($where as $key => $value)
             {
                 $query->where($key, '=', $value);
             }
         }
 
+        // Were there any columns that were defined as a "key column"
         if(count(static::$keyColumns) > 0)
         {
+            // There were, so add in the group bys
             foreach(static::$keyColumns as $column)
             {
                 $query->groupBy($column);
             }
 
+            // Send back all of the key columns where we have more than the allowed
             $query->having(\DB::raw('count(1)'), '>', static::$revisionCount)
                 ->addSelect(static::$keyColumns);
         }
@@ -261,6 +271,7 @@ abstract class Revisable extends Ardent
                 $filter = self::onlyTrashed();
             }
 
+            //
             foreach(static::$keyColumns as $column)
             {
                 $filter->where($column, '=', $row->$column);
@@ -332,23 +343,8 @@ abstract class Revisable extends Ardent
         }
         else
         {
-            // Only grab the things that 
-            $query = NULL;
-
-            // Check if soft deletes are enabled
-            if($this->softDelete)
-            {
-                // They are, so grab all of the trashed items
-                $query = self::onlyTrashed();
-            }
-            else
-            {
-                // They aren't, so make sure we remove the current element
-
-                // Grab the key column name
-                $keyName = $this->getKeyName();
-                $query = static::where($keyName, '<>', $this->attributes[$keyName]);
-            }
+            // Only grab the instances that were trashed
+            $query = self::onlyTrashed();
         }
 
         // Cycle through all of the other respective columns
