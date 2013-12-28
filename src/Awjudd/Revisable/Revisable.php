@@ -110,7 +110,23 @@ abstract class Revisable extends Ardent
         return $this->deriveRevisions()->get($columnList);
     }
 
-
+    /**
+     * Save the model to the database.
+     * 
+     * This is the primary call that will handle the saving of and committing of information to the database.
+     * Within this method, it decides whether or not we will make a new copy of the model is made, or in the
+     * case of a multi-table approach, the row will be inserted into the history table for the previous value
+     * and update the base table with the new values.
+     *
+     * @param array   $rules
+     * @param array   $customMessages
+     * @param array   $options
+     * @param Closure $beforeSave
+     * @param Closure $afterSave
+     *
+     * @return bool
+     * @see Ardent::forceSave()
+     */
     public function save(array $rules = array(),
         array $customMessages = array(),
         array $options = array(),
