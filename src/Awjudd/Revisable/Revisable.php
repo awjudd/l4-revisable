@@ -103,11 +103,32 @@ abstract class Revisable extends Ardent
     /**
      * Gets a list of revisions available for the specified model.
      * 
+     * @param array $columnList The list of columns to retrieve
      * @return array
      */
     public function getRevisions($columnList = array('*'))
     {
         return $this->deriveRevisions()->get($columnList);
+    }
+
+    /**
+     * Gets a single revision from the list.
+     * 
+     * @param int $revisionNumber The revision number to retrieve
+     * @param array $columnList The list of columns to retrieve
+     * @return array
+     */
+    public function getRevisionNumber($revisionNumber, $columnList = array('*'))
+    {
+        $query = $this->deriveRevisions();
+
+        if($revisionNumber > 1)
+        {
+            // Skip ahead to where we need to be
+            $query->skip($revisionNumber - 1)->take(1);
+        }
+
+        return $query->get($columnList)->first();
     }
 
     /**
