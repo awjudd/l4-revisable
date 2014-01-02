@@ -13,9 +13,6 @@
         "laravelbook/ardent": "*"
     },
     "autoload": {
-        "classmap": [
-            "src/commands"
-        ],
         "psr-0": {
             "Awjudd\\Revisable": "src/"
         }

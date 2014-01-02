@@ -1,5 +1,6 @@
 <?php namespace Awjudd\Revisable;
 
+use Awjudd\Revisable\Commands\CleanupCommand;
 use Illuminate\Support\ServiceProvider;
 
 class RevisableServiceProvider extends ServiceProvider
