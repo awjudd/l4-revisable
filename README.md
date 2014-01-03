@@ -1,4 +1,4 @@
-Revisable
+Laravel 4 - Revisable
 ============
 
 [![Build Status](https://api.travis-ci.org/awjudd/l4-revisable.png)](https://travis-ci.org/awjudd/l4-revisable)
