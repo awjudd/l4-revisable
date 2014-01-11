@@ -1,6 +1,6 @@
 {
     "name": "awjudd/revisable",
-    "description": "",
+    "description": "A Laravel 4 model that will allow for revisions to be made and tracked.",
     "authors": [
         {
             "name": "Andrew Judd",
