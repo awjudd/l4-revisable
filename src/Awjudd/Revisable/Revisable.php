@@ -1,5 +1,6 @@
 <?php namespace Awjudd\Revisable;
 
+use DB;
 use LaravelBook\Ardent\Ardent;
 
 abstract class Revisable extends Ardent
@@ -109,6 +110,16 @@ abstract class Revisable extends Ardent
     public function getRevisions($columnList = array('*'))
     {
         return $this->deriveRevisions()->get($columnList);
+    }
+
+    /**
+     * Gets the raw revision query for the user to act on.
+     * 
+     * @return Illuminate\Database\Query\Builder
+     */
+    public function getRevisionsQuery()
+    {
+        return $this->deriveRevisions();
     }
 
     /**
@@ -257,7 +268,7 @@ abstract class Revisable extends Ardent
         // Otherwise look for the expired revisions
         if( static::hasAlternateRevisionTable())
         {
-            $query = \DB::table(static::$revisionTable);
+            $query = DB::table(static::$revisionTable);
         }
         else
         {
@@ -376,7 +387,7 @@ abstract class Revisable extends Ardent
         // There are, so look for any revisions
         if($this->hasAlternateRevisionTable())
         {
-            $query = \DB::table(static::$revisionTable);
+            $query = DB::table(static::$revisionTable);
         }
         else
         {
