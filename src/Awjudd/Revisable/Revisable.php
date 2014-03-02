@@ -410,7 +410,7 @@ abstract class Revisable extends Ardent
         }
 
         // Return the query
-        return $query->orderBy('created_at', 'desc');
+        return $query;
     }
 
 }
